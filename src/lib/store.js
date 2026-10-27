@@ -12,6 +12,16 @@ const Store = {
       line: "fsa2q34, Faridabad, 121000, Haryana",
       phone: "9229349234",
     },
+    ...[
+      ["demo-gurugram", "Gurugram warehouse · Demo", "12 Demo Warehouse Road", "Gurugram", "Haryana", "122001"],
+      ["demo-delhi", "Delhi office · Demo", "24 Demo Office Road", "New Delhi", "Delhi", "110001"],
+      ["demo-mumbai", "Mumbai warehouse · Demo", "36 Demo Warehouse Road", "Mumbai", "Maharashtra", "400001"],
+      ["demo-bengaluru", "Bengaluru office · Demo", "48 Demo Office Road", "Bengaluru", "Karnataka", "560001"],
+    ].map(([id, label, addressLine1, city, state, pincode]) => ({
+      id, label, addressLine1, city, state, pincode, country: "India",
+      line: [addressLine1, city, state, pincode, "India"].join(", "),
+      phone: "9876543210",
+    })),
   ],
   templates: [
     { id: "flyer", name: "Flyer", l: 10, b: 10, h: 2, w: 0.2, type: "Flyer" },
