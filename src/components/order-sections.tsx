@@ -62,30 +62,8 @@ type SectionProps = {
   errors: Record<string, string>;
 };
 export function BuyerSection({ order, setOrder, errors }: SectionProps) {
-  const [paste, setPaste] = useState("");
-  const [message, setMessage] = useState("");
-  const [pasteOpen, setPasteOpen] = useState(false);
   const update = (key: string, value: string) =>
     setOrder((d: any) => ({ ...d, buyer: { ...d.buyer, [key]: value } }));
-  function fill() {
-    const result = S.parseAddress(paste);
-    if (!result.ok) {
-      setMessage("Add a 6-digit pincode, or enter the address below.");
-      return;
-    }
-    const { ok: _, ...address } = result;
-    setOrder((d: any) => ({
-      ...d,
-      buyer: {
-        ...d.buyer,
-        ...address,
-        city: address.city || d.buyer.city,
-        state: address.state || d.buyer.state,
-      },
-    }));
-    setMessage("");
-    setPasteOpen(false);
-  }
   return (
     <Panel title="Buyer information">
       <div className="space-y-6">
@@ -125,43 +103,7 @@ export function BuyerSection({ order, setOrder, errors }: SectionProps) {
           />
         </div>
         <div className="space-y-4 border-t pt-5">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-medium">Delivery address</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPasteOpen(!pasteOpen)}
-            >
-              {pasteOpen ? "Close" : "Paste address"}
-            </Button>
-          </div>
-          {pasteOpen && (
-            <div className="space-y-3 rounded-lg border p-3">
-              <Label htmlFor="address-paste">Full address</Label>
-              <Textarea
-                id="address-paste"
-                value={paste}
-                onChange={(e) => {
-                  setPaste(e.target.value);
-                  setMessage("");
-                }}
-                placeholder="Street, city, state and pincode"
-              />
-              <div className="flex items-center justify-between gap-3">
-                <p role="status" className="text-xs text-destructive">
-                  {message}
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!paste.trim()}
-                  onClick={fill}
-                >
-                  Fill address
-                </Button>
-              </div>
-            </div>
-          )}
+          <h3 className="text-sm font-medium">Delivery address</h3>
           <AddressEntry
             prefix="buyer"
             value={order.buyer}
@@ -629,8 +571,19 @@ function PickupSection({
   setOrder,
 }: Pick<SectionProps, "order" | "setOrder">) {
   const [open, setOpen] = useState(false);
-  const [pickup, setPickup] = useState({ label: "", line: "", phone: "" });
-  const [error, setError] = useState("");
+  const emptyPickup = {
+    label: "",
+    line: "",
+    line2: "",
+    landmark: "",
+    city: "",
+    state: "",
+    pincode: "",
+    country: "India",
+    phone: "",
+  };
+  const [pickup, setPickup] = useState(emptyPickup);
+  const [pickupErrors, setPickupErrors] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   return (
     <>
@@ -650,7 +603,8 @@ function PickupSection({
             variant="outline"
             onClick={() => {
               setEditingId(null);
-              setPickup({ label: "", line: "", phone: "" });
+              setPickup(emptyPickup);
+              setPickupErrors({});
               setOpen(true);
             }}
           >
@@ -663,11 +617,20 @@ function PickupSection({
               const current = getPickups().find((p) => p.id === order.pickup);
               if (current) {
                 setEditingId(current.id);
+                const parsed = S.parseAddress(current.line);
                 setPickup({
-                  label: current.label,
-                  line: current.line,
-                  phone: current.phone,
+                  ...emptyPickup,
+                  ...current,
+                  line:
+                    current.addressLine1 ||
+                    (parsed.ok
+                      ? parsed.line.replace(/^[,\s]+|[,\s]+$/g, "")
+                      : current.line),
+                  city: current.city || (parsed.ok ? parsed.city : ""),
+                  state: current.state || (parsed.ok ? parsed.state : ""),
+                  pincode: current.pincode || (parsed.ok ? parsed.pincode : ""),
                 });
+                setPickupErrors({});
                 setOpen(true);
               }
             }}
@@ -681,7 +644,7 @@ function PickupSection({
         </p>
       </Panel>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               {editingId ? "Edit pickup location" : "Add pickup location"}
@@ -690,25 +653,43 @@ function PickupSection({
               Save a collection address for this and future orders.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {[
-              ["label", "Location name"],
-              ["line", "Full address"],
-              ["phone", "Mobile number"],
-            ].map(([key, label]) => (
+          <div className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field
-                key={key}
-                label={label}
+                label="Location name"
                 required
-                value={pickup[key as keyof typeof pickup]}
-                onChange={(v: string) => setPickup((p) => ({ ...p, [key]: v }))}
+                value={pickup.label}
+                error={pickupErrors.label}
+                placeholder="Warehouse or office name"
+                onChange={(label: string) =>
+                  setPickup((p) => ({ ...p, label }))
+                }
               />
-            ))}
-            {error && (
-              <p role="alert" className="text-xs text-destructive">
-                {error}
-              </p>
-            )}
+              <Field
+                label="Mobile number"
+                required
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={pickup.phone}
+                error={pickupErrors.phone}
+                placeholder="10-digit number"
+                onChange={(phone: string) =>
+                  setPickup((p) => ({ ...p, phone: phone.replace(/\D/g, "") }))
+                }
+              />
+            </div>
+            <div className="space-y-4 border-t pt-5">
+              <h3 className="text-sm font-medium">Pickup address</h3>
+              <AddressEntry
+                key={editingId || "new"}
+                prefix="pickup"
+                value={pickup}
+                errors={pickupErrors}
+                landmark
+                onChange={(address) => setPickup((p) => ({ ...p, ...address }))}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
@@ -716,23 +697,40 @@ function PickupSection({
             </Button>
             <Button
               onClick={() => {
-                if (
-                  !pickup.label.trim() ||
-                  !/[1-9]\d{5}/.test(pickup.line) ||
-                  !/^[6-9]\d{9}$/.test(pickup.phone)
-                ) {
-                  setError(
-                    "Enter a name, full address with pincode, and valid mobile number.",
-                  );
-                  return;
-                }
+                const found: Record<string, string> = {};
+                if (!pickup.label.trim())
+                  found.label = "Enter a location name.";
+                if (!/^[6-9]\d{9}$/.test(pickup.phone))
+                  found.phone = "Enter a valid 10-digit mobile number.";
+                for (const key of ["line", "city", "state"] as const)
+                  if (!pickup[key].trim())
+                    found[key] = "Complete the pickup address.";
+                if (!/^[1-9]\d{5}$/.test(pickup.pincode))
+                  found.pincode = "Enter a valid 6-digit pincode.";
+                setPickupErrors(found);
+                if (Object.keys(found).length) return;
+                const address = {
+                  ...pickup,
+                  addressLine1: pickup.line,
+                  line: [
+                    pickup.line,
+                    pickup.line2,
+                    pickup.landmark,
+                    pickup.city,
+                    pickup.state,
+                    pickup.pincode,
+                    pickup.country,
+                  ]
+                    .filter(Boolean)
+                    .join(", "),
+                };
                 const saved = editingId
-                  ? (updatePickup(editingId, pickup), { id: editingId })
-                  : addPickup(pickup);
+                  ? (updatePickup(editingId, address), { id: editingId })
+                  : addPickup(address);
                 setOrder((d: any) => ({ ...d, pickup: saved.id }));
                 setOpen(false);
-                setPickup({ label: "", line: "", phone: "" });
-                setError("");
+                setPickup(emptyPickup);
+                setPickupErrors({});
               }}
             >
               Save address

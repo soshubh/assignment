@@ -4,7 +4,7 @@ import { Field, SelectField } from "@/components/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getBuyers } from "@/lib/store";
+import { getBuyers, getPickups, Shipway as S } from "@/lib/store";
 
 type Props = {
   value: any;
@@ -23,7 +23,6 @@ export function AddressEntry({
   landmark = false,
 }: Props) {
   const [expanded, setExpanded] = useState(!!value.line);
-  const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -34,7 +33,18 @@ export function AddressEntry({
   }, [value.line]);
   const update = (key: string, next: string) =>
     onChange({ ...value, [key]: next });
-  const saved = getBuyers().filter(
+  const saved = (
+    prefix === "pickup"
+      ? getPickups().map((address: any) => {
+          const parsed = S.parseAddress(address.line);
+          return {
+            ...(parsed.ok ? parsed : {}),
+            ...address,
+            line: address.addressLine1 || address.line,
+          };
+        })
+      : getBuyers()
+  ).filter(
     (address: any, index: number, all: any[]) =>
       address.line &&
       all.findIndex(
@@ -52,7 +62,7 @@ export function AddressEntry({
         )
         .slice(0, 4)
     : [];
-  const showDetails = expanded && !searching;
+  const showDetails = expanded;
   function reveal(address?: any) {
     if (address) {
       // Address suggestions never overwrite the buyer's contact information.
@@ -79,7 +89,6 @@ export function AddressEntry({
       });
     }
     setExpanded(true);
-    setSearching(false);
     setOpen(false);
     requestAnimationFrame(() =>
       container.current
@@ -191,37 +200,9 @@ export function AddressEntry({
               Enter address manually
             </Button>
           )}
-          {!open && searching && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearching(false);
-                setOpen(false);
-              }}
-            >
-              Keep current address
-            </Button>
-          )}
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Address details
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setQuery("");
-                setSearching(true);
-                setOpen(false);
-              }}
-            >
-              Search another address
-            </Button>
-          </div>
           <Field
             label="Address line 1"
             id={`${prefix}-line`}
