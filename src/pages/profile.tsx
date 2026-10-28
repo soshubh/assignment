@@ -335,16 +335,30 @@ export function Profile() {
           {tabs.map((t) => (
             <Button
               key={t.slug}
+              asChild
               variant={tab === t.label ? "secondary" : "ghost"}
-              aria-current={tab === t.label ? "page" : undefined}
               className="shrink-0 justify-start gap-2"
-              onClick={() => {
-                if (tab === t.label) return;
-                goToTab(t.label);
-              }}
             >
-              <t.icon className="size-4" />
-              {t.label}
+              <a
+                href={`profile.html?tab=${t.slug}`}
+                aria-current={tab === t.label ? "page" : undefined}
+                onClick={(e) => {
+                  if (
+                    e.metaKey ||
+                    e.ctrlKey ||
+                    e.shiftKey ||
+                    e.altKey ||
+                    e.button !== 0
+                  )
+                    return;
+                  e.preventDefault();
+                  if (tab === t.label) return;
+                  goToTab(t.label);
+                }}
+              >
+                <t.icon className="size-4" />
+                {t.label}
+              </a>
             </Button>
           ))}
         </nav>
