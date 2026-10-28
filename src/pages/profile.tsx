@@ -135,6 +135,17 @@ export function Profile() {
       requestAnimationFrame(() => document.getElementById(focus)?.focus());
   }, [tab, focus]);
   useEffect(() => {
+    if (!new URLSearchParams(location.search).get("tab")) {
+      setTabUrl(tab, true);
+    }
+    const onPopState = () => {
+      setTab(tabFromUrl());
+      setFocus("");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (dirty) {
         e.preventDefault();
@@ -152,7 +163,7 @@ export function Profile() {
         !validate(p).name &&
         !validate(p).email &&
         !validate(p).phone,
-      tab: "Personal",
+      tab: "Personal" as TabLabel,
       field: "name",
       cta: "Add contact details",
       why: "Keep account notifications going to the right person.",
@@ -160,7 +171,7 @@ export function Profile() {
     {
       label: "Company & brand",
       done: !!(p.company && p.brand),
-      tab: "Business",
+      tab: "Business" as TabLabel,
       field: "company",
       cta: "Add company details",
       why: "Identify the business sending your orders.",
@@ -168,7 +179,7 @@ export function Profile() {
     {
       label: "GST preference",
       done: !!((p.gst && !validate(p).gst) || p.gstExempt),
-      tab: "Business",
+      tab: "Business" as TabLabel,
       field: "gst",
       cta: "Add GST preference",
       why: "Add your GST number or mark your business as unregistered.",
@@ -176,7 +187,7 @@ export function Profile() {
     {
       label: "Billing address",
       done: !!p.address?.trim(),
-      tab: "Business",
+      tab: "Business" as TabLabel,
       field: "address",
       cta: "Add billing address",
       why: "Keep the address used for invoices in one place.",
@@ -187,7 +198,7 @@ export function Profile() {
         (p.website && !validate(p).website) ||
         (p.ecommerce && !validate(p).ecommerce)
       ),
-      tab: "Business",
+      tab: "Business" as TabLabel,
       field: "website",
       cta: "Add a sales channel",
       why: "Tell us where your customers place their orders.",
@@ -196,18 +207,17 @@ export function Profile() {
   const pct = checks.filter((c) => c.done).length * 20;
   const next = checks.find((c) => !c.done);
   const navigate = (c: (typeof checks)[number]) => {
-    setTab(c.tab);
-    setFocus("profile-" + c.field);
+    goToTab(c.tab, { focus: "profile-" + c.field });
   };
   function save() {
     const found = validate(p);
     setErrors(found);
     if (Object.keys(found).length) {
       const key = Object.keys(found)[0];
-      setTab(
+      goToTab(
         ["name", "phone", "email"].includes(key) ? "Personal" : "Business",
+        { focus: "profile-" + key },
       );
-      setFocus("profile-" + key);
       toast.error("Check the highlighted fields. Your changes are still here.");
       return;
     }
@@ -324,13 +334,13 @@ export function Profile() {
         >
           {tabs.map((t) => (
             <Button
-              key={t.label}
+              key={t.slug}
               variant={tab === t.label ? "secondary" : "ghost"}
               aria-current={tab === t.label ? "page" : undefined}
               className="shrink-0 justify-start gap-2"
               onClick={() => {
-                setTab(t.label);
-                setFocus("");
+                if (tab === t.label) return;
+                goToTab(t.label);
               }}
             >
               <t.icon className="size-4" />
