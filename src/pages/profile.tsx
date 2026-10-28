@@ -32,12 +32,23 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 const tabs = [
-  { label: "Personal", icon: UserRound },
-  { label: "Business", icon: Building2 },
-  { label: "Plans", icon: CreditCard },
-  { label: "Security & API", icon: LockKeyhole },
-  { label: "Privacy", icon: Eye },
-];
+  { label: "Personal", slug: "personal", icon: UserRound },
+  { label: "Business", slug: "business", icon: Building2 },
+  { label: "Plans", slug: "plans", icon: CreditCard },
+  { label: "Security & API", slug: "security", icon: LockKeyhole },
+  { label: "Privacy", slug: "privacy", icon: Eye },
+] as const;
+type TabLabel = (typeof tabs)[number]["label"];
+function tabFromUrl(): TabLabel {
+  const slug = new URLSearchParams(location.search).get("tab")?.toLowerCase();
+  return tabs.find((t) => t.slug === slug)?.label ?? "Personal";
+}
+function setTabUrl(label: TabLabel, replace = false) {
+  const slug = tabs.find((t) => t.label === label)?.slug ?? "personal";
+  const url = new URL(location.href);
+  url.searchParams.set("tab", slug);
+  history[replace ? "replaceState" : "pushState"](null, "", url);
+}
 function validate(p: any) {
   const errors: Record<string, string> = {};
   if (!p.name.trim()) errors.name = "Enter your full name.";
@@ -70,11 +81,16 @@ function validate(p: any) {
 }
 export function Profile() {
   const [p, setP] = useState(S.load().profile);
-  const [tab, setTab] = useState("Personal");
+  const [tab, setTab] = useState<TabLabel>(tabFromUrl);
   const [revealed, setRevealed] = useState(false);
   const [plan, setPlan] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
   const imageTarget = tab === "Business" ? "logo" : "avatar";
+  function goToTab(label: TabLabel, options?: { replace?: boolean; focus?: string }) {
+    setTab(label);
+    setTabUrl(label, options?.replace);
+    setFocus(options?.focus ?? "");
+  }
   async function uploadImage(file?: File) {
     if (!file) return;
     if (
